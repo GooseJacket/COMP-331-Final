@@ -29,7 +29,7 @@ class NeuralNetwork(nn.Module):
         self.sig = nn.Sigmoid()
 
     def forward(self, x):
-
+        '''
         emb = self.embed(x)
 
         lin1 = self.linear1(emb)
@@ -50,11 +50,11 @@ class NeuralNetwork(nn.Module):
 
         sig = self.sig(lin)
         return sig
-        '''
+
 
 
 def train(model, train_features, train_labels, test_features, test_labels,
-          num_epochs, learning_rate=0.001):
+          num_epochs, learning_rate=.001):
     """
     Train the neural network model
 
@@ -83,14 +83,22 @@ def train(model, train_features, train_labels, test_features, test_labels,
 
     # Set up Data Loader
     trainDS = TensorDataset(train_features, train_labels)
-    batch_size = 128
+    batch_size = 1024
     trainDL = DataLoader(trainDS, batch_size=batch_size, shuffle=True)
 
     print("\tLearning with\t", learning_rate, "as LR and", batch_size, "in batches\n")
 
+    print("\t" + "-" * int(len(train_features)/batch_size), end="")
+    if len(train_features) % batch_size > 0:
+        print("-")
+    else:
+        print()
+
     # set up epochs
     for e in range(num_epochs):  # for each epoch:
         totalLoss = 0
+
+        print("\t", end="")
 
         for i, (batchFeatures, batchLabels) in enumerate(trainDL):  # for each batch:
             # zero the gradients
@@ -104,12 +112,13 @@ def train(model, train_features, train_labels, test_features, test_labels,
             loss.backward()
             opt.step()
             totalLoss += loss.item()
+            print("~", end="")
 
         # keep track of epochs for history
         ep = "Epoch " + str(e + 1) + " / " + str(num_epochs) + ", loss: " + str(totalLoss / len(trainDL))
         returnHistory += ep
         # if e+1 % 10 == 0:
-        print(ep)
+        print("\n", ep)
 
     return returnHistory
 
@@ -142,7 +151,7 @@ def evaluate(model, test_features, test_labels):
     model.eval()
     with torch.no_grad():
 
-        eI = []
+        guesses = [[0,0], [0,0], [0,0], [0,0]]
 
         # predict whole test range
         y_preds = model(test_features)
@@ -154,8 +163,13 @@ def evaluate(model, test_features, test_labels):
             # add to accuracy
             accuracy += (pred == test_labels[i]).float() / numTests
 
-            # take notes to later calculate f1
-            if pred.item() == 1:  # Positive:
+            if pred == test_labels[i]:
+                guesses[pred.item()][0] += 1
+            else:
+                guesses[pred.item()][1] += 1
+
+            '''# take notes to later calculate f1
+            if pred.item() == test_labels[i]:  # Positive:
                 if test_labels[i].item() == 1:  # True Positive
                     TP += 1
                 else:  # False Positive
@@ -164,15 +178,16 @@ def evaluate(model, test_features, test_labels):
             elif test_labels[i].item() == 1:  # False Negative
                 FN += 1
                 eI.append(i)
+            '''
 
         # calculate precision and recall for f1
-        precision = 1.0 * TP / (TP + FP)
-        recall = 1.0 * TP / (TP + FN)
+        #precision = 1.0 * TP / (TP + FP)
+        #recall = 1.0 * TP / (TP + FN)
 
     return {
         'test_accuracy': accuracy,
-        'test_precision': precision,
-        'test_recall': recall,
-        'test_f1': 2 * precision * recall / (precision + recall),
-        'error_indexes': eI
+        #'test_precision': precision,
+        #'test_recall': recall,
+        'test_f1': 0.0,  # 2 * precision * recall / (precision + recall),
+        'guesses': guesses
     }
