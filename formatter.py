@@ -1,9 +1,9 @@
-import json
 import re
+import os
+from random import shuffle
 
-lengths = [1530, 0]
 
-def cleanString(text, remove):
+def clean_string(text, remove):
     remove.append(r'[^a-zA-Z\s]')
     remove.append("\n")
 
@@ -12,148 +12,87 @@ def cleanString(text, remove):
     text = text.strip()
     return text
 
-def readDiplomacyFiles():
 
-    '''
-    {
-        "messages": [list of strings]
-        "sender_labels": [true or false]
-        "receiver_labels": [true false or NOANNOTATION]
-        "speakers": [list of speakers]
-        "receivers" [list of receivers]
-        "absolute_message_index":
-        "seasons"
-        "years"
-        "game_score"
-        "game_score_delta"
-        "players"
-        "game_id"
-    }
-    '''
+def strip_book(file, label, squeezeNum):  # returns book file as list of paragraph-label pairs (tests)
+    book = ""
+    with open(file, 'r', encoding='utf-8') as F:
+        for line in F:
+            book += line
 
-    infiles =   [
-                    ["../olddata/diplomacy_validation.jsonl", "valid"],
-                    ["../olddata/diplomacy_train.jsonl", "train"],
-                    ["../olddata/diplomacy_test.jsonl", "test"]
-                ]
+    # Fix the line/paragraph breaks:
+    book = re.sub("\n\n", "PARABREAK", book)
+    book = re.sub("\n", " ", book)
+    book = book.split("PARABREAK")
 
-    retDict = {
-            "train": "",
-            "test": "",
-            "valid": ""
-            }
+    ret = squeeze(book, squeezeNum, label)
 
-    for infile in infiles:
-        ret = []
+    # TODO: Add tags!
 
-        with open(infile[0], 'r', encoding='utf-8') as IN:
-            data = [json.loads(line) for line in IN]
-
-            for run in data:
-                messageList = run["messages"]
-                if len(messageList) > 5:
-
-                    for i in range(len(messageList)):
-                        messageList[i] = cleanString(messageList[i], [])
-                    ret.append("\t".join(messageList) + "\t\t\t0")
-
-                    lengths[0] = min(len(messageList), lengths[0])
-                    lengths[1] = max(len(messageList), lengths[1])
-
-            ret = "\n".join(ret)
-        retDict[infile[1]] = ret
+    return ret
 
 
+def squeeze(book, num, label):
+    ret = []
 
-    return retDict
+    if num == 1:
+        ret = [ [i, label] for i in book]
+        return ret
+
+    for j in range(0, len(book), num):
+        if len(book) - (j + num) >= 0:
+            ret.append( [" ".join(book[j:j+num]), label] )
+        else:
+            break
+
+    spare = len(book) % num
+    if spare > 0:
+        ret.extend(squeeze(book[len(book)-spare:], num-1, label))
+
+    return ret
 
 
-def readMovieFile():
-    '''
-    - movie_lines.txt
-	- contains the actual text of each utterance
-	- fields:
-		- lineID
-		- characterID (who uttered this phrase)
-		- movieID
-		- character name
-		- text of the utterance
-
-    - movie_conversations.txt
-        - the structure of the conversations
-        - fields
-            - characterID of the first character involved in the conversation
-            - characterID of the second character involved in the conversation
-            - movieID of the movie in which the conversation occurred
-            - list of the utterances that make the conversation, in chronological
-                order: ['lineID1','lineID2',É,'lineIDN']
-                has to be matched with movie_lines.txt to reconstruct the actual content
+'''
+test = strip_book("../data/ClassicBooks/test.txt", 0)
+for t in test:
+    print(t)
     '''
 
-    lines = {}
-    with open("../olddata/movie_lines.txt", 'r', encoding='unicode_escape') as LINES:
-        for line in LINES:
-            lineList = line.split(" +++$+++ ")
-            lines[lineList[0]] = lineList[4]
 
-    movies = {}
+def load_tests():
+    train_test_valids = [ [], [], [] ]
 
-    with open("../olddata/movie_conversations.txt", 'r', encoding='utf-8') as CONVOS:
-        for convoRow in CONVOS:
-            convoRow = convoRow.split(" +++$+++ ")
-            convo = convoRow[3]
-            convo = convo.split("\', \'")
-            if len(convo) > 0:
-                convo[0] = convo[0][2:]
-                convo[-1] = convo[-1][:-3]
-            for i in range(len(convo)):
-                convo[i] = cleanString(lines[convo[i]], ["<i>", "</i>"])
-            movie = convoRow[2]
-            if movie in movies:
-                movies[movie].extend(convo)
-            else:
-                movies[movie] = [l for l in convo]
+    paths = ["Adventure", "Gothic", "Romance", "Shakespeare"]
+    squNum = [5, 3, 5, 2]
+    for i in range(len(paths)):
+        set = []
+        files = os.listdir("../data/ClassicBooks/" + paths[i])
 
+        for file in files:
+            set.extend(strip_book("../data/ClassicBooks/" + paths[i] + "/" + file, i, squNum[i]))
 
-    convos = []
-    for c in movies.keys():
-        convos.append("\t".join(movies[c]) + "\t\t\t1")
+        print(paths[i], len(set))
+        print("\t", len(set) * .75, len(set) * .20)
 
-        lengths[0] = min(len(movies[c]), lengths[0])
-        lengths[1] = max(len(movies[c]), lengths[1])
+        # dump this book type into the real lists
+        train_test_valids[0].extend(set[0: int(len(set) * 0.75)])
+        train_test_valids[1].extend(set[int(len(set) * 0.75): int(len(set) * 0.95)])
+        train_test_valids[2].extend(set[int(len(set) * 0.95): int(len(set))])
 
-    retDict = {
-        "train": "\n".join(convos[0:int(0.75*len(convos))]),
-        "test": "\n".join(convos[int(0.75*len(convos)):int(0.95*len(convos))]),
-        "valid": "\n".join(convos[int(0.95*len(convos)):len(convos)])
-    }
+    for l in train_test_valids:
+        shuffle(l)
 
-    return retDict
+    new_files = ["train.txt", "test.txt", "valids.txt"]
+    for i in range(len(new_files)):
+        with open("../data/" + new_files[i], 'w', encoding='utf-8') as f:
+            for run in train_test_valids[i]:
+                if len(run[0]) > 0:
+                    f.write(run[0] + "\t" + str(run[1]) + "\n")
+
+    print("\nLoaded!")
+    print("\n# Cases:")
+    print("Test:\t", len(train_test_valids[0]))
+    print("Train:\t", len(train_test_valids[1]))
+    print("Valid:\t", len(train_test_valids[2]))
 
 
-
-def normalizeAll(doDiplomacy, doMovie, doBlog):
-    if doDiplomacy:
-        diplomacyDict = readDiplomacyFiles()
-    if doMovie:
-        movieDict = readMovieFile()
-    if doBlog:
-        pass
-        #blogDict = readBlogFile()
-
-    goThrough = ["test", "train", "valid"]
-
-    for type in goThrough:
-        with open("../olddata/total_" + type + ".txt", 'w', encoding='utf-8') as OUT:
-            if doDiplomacy:
-                OUT.write(diplomacyDict[type])
-            if doMovie:
-                OUT.write(movieDict[type])
-            if doBlog:
-                pass
-                # OUT.write(blogDict[type])
-
-
-normalizeAll(True, True, False)
-print("Shortest datum = ", lengths[0])
-print("Longest datum = ", lengths[1])
+load_tests()
