@@ -24,7 +24,7 @@ if __name__ == "__main__":
     processor.build_vocab(train_texts)
 
     # Convert text documents to tensor representations of word indices
-    max_length = 400
+    max_length = 600
     train_features = convert_text_to_tensors(train_texts, processor, max_length)
     test_features = convert_text_to_tensors(test_texts, processor, max_length)
 
@@ -71,7 +71,7 @@ if __name__ == "__main__":
     print("\nGuesses in Each Category: (real average =", len(test_texts)/output_size, ")")
     print("Class # \tTrue\tFalse")
     for i in range(4):
-        print("Class" + str(i), evaluation_results['guesses'][i][0], evaluation_results['guesses'][i][1], sep="\t")
+        print("Class " + str(i), evaluation_results['guesses'][i][0], evaluation_results['guesses'][i][1], sep=" \t")
 
     # Save model weights to file
     torch.save(model.state_dict(), outfile)
