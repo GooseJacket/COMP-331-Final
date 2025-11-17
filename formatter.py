@@ -20,16 +20,13 @@ def strip_book(file, label, squeezeNum):  # returns book file as list of paragra
             book += line
 
     # Fix the line/paragraph breaks:
-    if label != 0:
-        book = re.sub("\n\n", "PARABREAK", book)
-        book = re.sub("\n", " ", book)
-        book = book.split("PARABREAK")
+    book = re.sub("\n\n", "PARABREAK", book)
+    if label == 1 or label == 3: #poetry and shakespeare care about line breaks
+        book = re.sub("\n", " [NL] ", book)
     else:
-        book = re.sub("\n\n", "\n", book)
-        book = book.split("\n")
+        book = re.sub("\n", "", book)
+    book = book.split("PARABREAK")
     ret = squeeze(book, squeezeNum, label)
-
-    # TODO: Add tags!
 
     return ret
 
@@ -64,7 +61,7 @@ for t in test:
 def load_runs():
     train_test_valids = [ [], [], [] ]
 
-    paths = ["News", "Poetry", "Romance", "Shakespeare"]
+    paths = ["Movies", "Poetry", "Romance", "Shakespeare"]
     squNum = [3, 4, 5, 2]
     for i in range(len(paths)):
         set = []
@@ -116,7 +113,7 @@ def load_poems():
     print("Poems Loaded!")
 
 
-load_poems()
+# load_poems()
 load_runs()
 
 print("All done!")
