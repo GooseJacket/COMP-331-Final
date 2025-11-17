@@ -20,10 +20,13 @@ def strip_book(file, label, squeezeNum):  # returns book file as list of paragra
             book += line
 
     # Fix the line/paragraph breaks:
-    book = re.sub("\n\n", "PARABREAK", book)
-    book = re.sub("\n", " ", book)
-    book = book.split("PARABREAK")
-
+    if label != 0:
+        book = re.sub("\n\n", "PARABREAK", book)
+        book = re.sub("\n", " ", book)
+        book = book.split("PARABREAK")
+    else:
+        book = re.sub("\n\n", "\n", book)
+        book = book.split("\n")
     ret = squeeze(book, squeezeNum, label)
 
     # TODO: Add tags!
@@ -58,17 +61,19 @@ for t in test:
     '''
 
 
-def load_tests():
+def load_runs():
     train_test_valids = [ [], [], [] ]
 
-    paths = ["Adventure", "Gothic", "Romance", "Shakespeare"]
-    squNum = [5, 3, 5, 2]
+    paths = ["News", "Poetry", "Romance", "Shakespeare"]
+    squNum = [3, 4, 5, 2]
     for i in range(len(paths)):
         set = []
         files = os.listdir("../data/ClassicBooks/" + paths[i])
 
         for file in files:
             set.extend(strip_book("../data/ClassicBooks/" + paths[i] + "/" + file, i, squNum[i]))
+            if(len(set) >= 5000):
+                break
 
         print(paths[i], len(set))
         print("\t", len(set) * .75, len(set) * .20)
@@ -95,4 +100,23 @@ def load_tests():
     print("Valid:\t", len(train_test_valids[2]))
 
 
-load_tests()
+def load_poems():
+    num = 0
+    for root, dirs, files in os.walk("C:\\Users\\lalat\\Downloads\\archive"):
+        for file in files:
+            path = os.path.join(root, file)
+            with open(path, 'r', encoding='utf-8') as read:
+                with open("../data/ClassicBooks/Poetry/kaggle" + str(num) + ".txt", 'a', encoding='utf-8') as out:
+                    for line in read:
+                        out.write(line)
+                    out.write("\n\n")
+                    num += 1
+                    if num > 6:
+                        num = 0
+    print("Poems Loaded!")
+
+
+load_poems()
+load_runs()
+
+print("All done!")
