@@ -2,7 +2,6 @@ import re
 import os
 from random import shuffle
 
-
 def clean_string(text, remove):
     text = re.sub(r'[^a-zA-Z\s(\[PB\])(\[NL\])]', "", text)
     remove.append("\n")
