@@ -34,7 +34,7 @@ def use_spacy(text):
     for token in doc:
         if token.pos_ == "PROPN" and token.text != "d" and token.text != "Exeunt" and token.text != "Exit":
             try:
-                text = re.sub(token.text, "[PN]", text)
+                text = re.sub(" " + token.text + " ", " [PN] ", text)
                 numSuccess += 1
             except:
                 print("Word apparently not in OG Text:", token.text)  

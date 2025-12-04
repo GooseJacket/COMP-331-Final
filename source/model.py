@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
+from transformers import get_linear_schedule_with_warmup
 
 class NeuralNetwork(nn.Module):
     def __init__(self, vocab_size, embedding_dim, hidden_size, output_size, max_length=20):
@@ -54,7 +55,7 @@ class NeuralNetwork(nn.Module):
 
 
 def train(model, train_features, train_labels, test_features, test_labels,
-          num_epochs, learning_rate=.00001):
+          num_epochs, learning_rate=.001):
     """
     Train the neural network model
 
@@ -83,6 +84,11 @@ def train(model, train_features, train_labels, test_features, test_labels,
     batch_size = 516
     trainDL = DataLoader(trainDS, batch_size=batch_size, shuffle=True)
 
+    total_steps = len(trainDL) * num_epochs
+    scheduler = get_linear_schedule_with_warmup(opt,
+                                            num_warmup_steps = 1000,
+                                            num_training_steps = total_steps)
+
     print("\tLearning with\t", learning_rate, "as LR and", batch_size, "in batches\n")
 
     print("\t" + "-" * int(len(train_features)/batch_size), end="")
@@ -108,6 +114,7 @@ def train(model, train_features, train_labels, test_features, test_labels,
             loss = loss_fn(y_preds, batchLabels)
             loss.backward()
             opt.step()
+            scheduler.step()
             totalLoss += loss.item()
             print("~", end="")
 
