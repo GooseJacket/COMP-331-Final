@@ -1,13 +1,19 @@
 import re
 import os
 from random import shuffle
-import spacy
-nlp = spacy.load("en_core_web_sm")
-print("Spacy Loaded!")
+def clean_string(text, label):
+    text = re.sub(r'\[\]', "", text)
 
-def clean_string(text):
+    # Fix the line/paragraph breaks:
+    text = re.sub(r"\n\s*\n+", " [PB] ", text)
+    if label != 1:
+        text = re.sub("\n", " [NL] ", text)
+    else:
+        text = re.sub("\n", " ", text)
+
+    # Do the punctuation:
     replace = [
-        [".", " [P]"],  # period
+        [".", " [P] "],  # period
         ["!", " [E]"],  # exclamation
         ["?", " [QN]"],  # question
         [",", " [CM]"],  # comma
@@ -16,14 +22,6 @@ def clean_string(text):
         ["\"", " [QM] "],  # quotation mark
         ["-", " [D] "]  # dash
     ]
-
-    # thank you to https://www.geeksforgeeks.org/machine-learning/python-pos-tagging-and-lemmatization-using-spacy/
-    doc = nlp(text)
-    for token in doc:
-        if token.pos_ == "PROPN":
-            token = " [PN] "
-        else:
-            token = token.lemma_
 
     for r in replace:
         text = re.sub(re.escape(r[0]), r[1], text)
@@ -47,16 +45,9 @@ def strip_book(file, label, num_per_book, num_tokens=500):
         for line in F:
             book += line + " "
 
-    # Fix the line/paragraph breaks:
-    book = re.sub(r"\n\s*\n+", " [PB] ", book)
-    if label != 1:
-        book = re.sub("\n", " [NL] ", book)
-    else:
-        book = re.sub("\n", " ", book)
-
     ret = []
 
-    book = clean_string(book)
+    book = clean_string(book, label)
     book = book.split(" ")
     book = [i for i in book if i != ""]  # remove blank chars
 
@@ -86,15 +77,19 @@ def load_runs(total_per_genre):
         set = []
         files = os.listdir(paths[i])
 
-        print("\t" + "-" * int(len(files)))
+        j = 0
 
         for file in files:
+            print("\t" + "-" * int(len(files)))
+            print("\t")
             set.extend(strip_book(paths[i] + "/" + file, label=i, num_per_book=total_per_genre/len(files)))
 
             if i == 1 and len(set) >= total_per_genre:
                 break
-            print("\t" + "~" * i)
+            print("~", end="")
+            j += 1
 
+        print()
         print(paths[i], len(set))
         print("\t", len(set) * .75, len(set) * .20)
 
@@ -120,24 +115,6 @@ def load_runs(total_per_genre):
     print("Test:\t", len(train_test_valids[0]))
     print("Train:\t", len(train_test_valids[1]))
     print("Valid:\t", len(train_test_valids[2]))
-
-
-"""
-def load_poems():
-    num = 0
-    for root, dirs, files in os.walk("C:\\Users\\lalat\\Downloads\\archive\\topics"):
-        for file in files:
-            path = os.path.join(root, file)
-            with open(path, 'r', encoding='utf-8') as read:
-                with open("../data/ClassicBooks/Poetry/kaggle" + str(num) + ".txt", 'a', encoding='utf-8') as out:
-                    for line in read:
-                        out.write(line)
-                    out.write("\n\n")
-                    num += 1
-                    if num > 10:
-                        num = 0
-    print("Poems Loaded!")
-"""
 
 # load_poems()
 load_runs(1500)
