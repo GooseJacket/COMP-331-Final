@@ -15,11 +15,12 @@ def clean_string(text, label):
     replace = [
         [".", " [P] "],  # period
         ["!", " [E]"],  # exclamation
-        ["?", " [QN]"],  # question
+        ["?", " [Q]"],  # question
         [",", " [CM]"],  # comma
         [";", " [S]"],  # semicolon
         [":", " [CN]"],  # colon
-        ["\"", " [QM] "],  # quotation mark
+        ["\"", " [DQ] "],  # double quotes
+        ["\'", " [SQ] "],  # single quotes
         ["-", " [D] "]  # dash
     ]
 
@@ -52,7 +53,7 @@ def strip_book(file, label, num_per_book, num_tokens=500):
     book = [i for i in book if i != ""]  # remove blank chars
 
     # We stop at the end of a section or by num_tokens tokens, whichever is earlier
-    stops = ["[NL]", "[PB]", "[P]", "[E]", "[QN]", "[S]", "[D]"]
+    stops = ["[NL]", "[PB]", "[P]", "[E]", "[Q]", "[S]", "[D]"]
 
     i = 0
     while i < min(int(num_per_book * num_tokens), len(book)):
