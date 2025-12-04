@@ -21,7 +21,8 @@ class NeuralNetwork(nn.Module):
         self.relu = nn.ReLU()
 
         # GRU layer
-        self.gru = nn.GRU(embedding_dim, hidden_size, num_layers=2, batch_first=True, bidirectional=True)
+        num_layers = 1
+        self.gru = nn.GRU(embedding_dim, hidden_size, num_layers=num_layers, batch_first=True, bidirectional=True)
         self.gruLin = nn.Linear(hidden_size*2, output_size)  # hidden size is multiplied by 2 directions
 
         # Linear layer
@@ -49,12 +50,12 @@ class NeuralNetwork(nn.Module):
         lin = self.gruLin(gru)
 
         sig = self.sig(lin)
-        return sig
+        return lin
 
 
 
 def train(model, train_features, train_labels, test_features, test_labels,
-          num_epochs, learning_rate=.001):
+          num_epochs, learning_rate=.00001):
     """
     Train the neural network model
 
@@ -79,11 +80,11 @@ def train(model, train_features, train_labels, test_features, test_labels,
 
     # Set up loss, optimizer
     loss_fn = nn.CrossEntropyLoss()
-    opt = optim.Adam(model.parameters(), learning_rate)
+    opt = optim.AdamW(model.parameters(), learning_rate)
 
     # Set up Data Loader
     trainDS = TensorDataset(train_features, train_labels)
-    batch_size = 1024
+    batch_size = 516
     trainDL = DataLoader(trainDS, batch_size=batch_size, shuffle=True)
 
     print("\tLearning with\t", learning_rate, "as LR and", batch_size, "in batches\n")
@@ -151,34 +152,38 @@ def evaluate(model, test_features, test_labels):
     model.eval()
     with torch.no_grad():
 
-        guesses = [[0,0], [0,0], [0,0], [0,0]]
 
         # predict whole test range
         y_preds = model(test_features)
         numTests = test_labels.size()[0]
 
+        soft_max = nn.Softmax(dim=None)
+
+        num_features = len(y_preds[0])
+        guesses = [[a for a in range(num_features + 1)] for b in range(num_features + 1)]
+
         for i in range(numTests):  # compare each prediction with true label
-            pred = torch.argmax(y_preds[i])
+            pred = y_preds[i]
+            pred = soft_max(pred)
+            pred = torch.argmax(pred)
 
             # add to accuracy
             accuracy += (pred == test_labels[i]).float() / numTests
 
-            if pred == test_labels[i]:
-                guesses[pred.item()][0] += 1
-            else:
-                guesses[pred.item()][1] += 1
+            # row = correct, column = prediction
+            guesses[test_labels[i]][pred.item()] += 1
+            guesses[test_labels[i]][-1] += 1
+            guesses[-1][pred.item()] += 1
+            guesses[-1][-1] += 1
 
-            '''# take notes to later calculate f1
-            if pred.item() == test_labels[i]:  # Positive:
-                if test_labels[i].item() == 1:  # True Positive
-                    TP += 1
-                else:  # False Positive
-                    eI.append(i)
-                    FP += 1
-            elif test_labels[i].item() == 1:  # False Negative
-                FN += 1
-                eI.append(i)
-            '''
+            """
+                A   B   C   T
+            A   +=1         +=1
+            B
+            C
+            T   +=1         +=1
+            """
+
 
         # calculate precision and recall for f1
         #precision = 1.0 * TP / (TP + FP)
@@ -189,5 +194,5 @@ def evaluate(model, test_features, test_labels):
         #'test_precision': precision,
         #'test_recall': recall,
         'test_f1': 0.0,  # 2 * precision * recall / (precision + recall),
-        'guesses': guesses
+        'guesses': [[str(g).rjust(4) for g in r] for r in guesses]
     }
