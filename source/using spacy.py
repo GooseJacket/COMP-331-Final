@@ -31,7 +31,7 @@ def use_spacy(text):
     doc = nlp(text)
 
     for token in doc:
-        rep = token.text
+        rep = token.text.lower()
         if not token.is_punct:
             if token.pos_ == "PROPN" and token.text != "d" and token.text != "Exeunt" and token.text != "Exit":
                 rep = " [PN] "
