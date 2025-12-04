@@ -2,101 +2,90 @@ import re
 import os
 from random import shuffle
 
-def clean_string(text, remove):
-    text = re.sub(r'[^a-zA-Z\s(\[PB\])(\[NL\])]', "", text)
-    remove.append("\n")
 
-    for r in remove:
-        text = re.sub(r, "", text)
+def clean_string(text):
+    replace = [
+        [".", " [P]"],  # period
+        ["!", " [E]"],  # exclamation
+        ["?", " [QN]"],  # question
+        [",", " [CM]"],  # comma
+        [";", " [S]"],  # semicolon
+        [":", " [CN]"],  # colon
+        ["\"", " [QM] "],  # quotation mark
+        ["-", " [D] "]  # dash
+    ]
+
+    for r in replace:
+        text = re.sub(re.escape(r[0]), r[1], text)
+
+    text = re.sub(r'[^a-zA-Z\s\[\]]', " ", text)
     text = text.strip()
+
     return text
 
 
-def strip_book(file, label, squeezeNum, total):  # returns book file as list of paragraph-label pairs (tests)
+def strip_book(file, label, num_per_book, num_tokens=500):
+    """
+    returns book file as list of paragraph-label pairs (tests)
+    :param file: a file path to the book
+    :param label: the classification labem (e.g. 1 for Romance)
+    :param num_per_book: the total number of runs per book allowed
+    :return list of [label, run]
+    """
     book = ""
     with open(file, 'r', encoding='utf-8') as F:
         for line in F:
             book += line + " "
 
     # Fix the line/paragraph breaks:
-    book = re.sub("\n\n", " [PB] ", book)
-    if label == 1 or label == 3: #poetry and shakespeare care about line breaks
+    book = re.sub(r"\n\s*\n+", " [PB] ", book)
+    if label != 1:
         book = re.sub("\n", " [NL] ", book)
     else:
-        book = re.sub("\n", "", book)
-    # book = book.split("PARABREAK")
-    ret = squeeze(book, squeezeNum, label, total=total)
+        book = re.sub("\n", " ", book)
 
-
-    return ret
-
-
-def squeeze(book, squeezeNum, label, num_tokens=100, total=7000):
     ret = []
 
-    '''if num == 1:
-        ret = [ [i, label] for i in book]
-        return ret
-
-    for j in range(0, len(book), num):
-        if len(book) - (j + num) >= 0:
-            ret.append( [" ".join(book[j:j+num]), label] )
-        else:
-            break
-
-    spare = len(book) % num
-    if spare > 0:
-        ret.extend(squeeze(book[len(book)-spare:], num-1, label))'''
-
+    book = clean_string(book)
     book = book.split(" ")
-    book = [i for i in book if i != ""]
+    book = [i for i in book if i != ""]  # remove blank chars
 
-    stops = ["[NL]", ".", "!", "?", "--", "[PB]"]
+    # We stop at the end of a section or by num_tokens tokens, whichever is earlier
+    stops = ["[NL]", "[PB]", "[P]", "[E]", "[QN]", "[S]", "[D]"]
 
     i = 0
-    while i < min(int((total/squeezeNum)*num_tokens), len(book)):
+    while i < min(int(num_per_book * num_tokens), len(book)):
         start = i
         fullstop = min(i+num_tokens, len(book))
-
-        i = start + int((fullstop - start) / 2)
+        i = start + int((fullstop - start) * 0.75)
 
         while i < fullstop and book[i] not in stops:
             i += 1
-        ret.append([clean_string(" ".join(book[start:i]), []), label])
-        #print(ret[-1])
+        ret.append([label, " ".join(book[start:i])])
         i += 1
 
     return ret
 
-
-'''
-test = strip_book("../data/ClassicBooks/test.txt", 0)
-for t in test:
-    print(t)
-    '''
-
-
-def load_runs(total_num):
+def load_runs(total_per_genre):
     train_test_valids = [ [], [], [] ]
 
-    paths = ["Movies", "Poetry", "Romance", "Shakespeare"]
-    squNum = [15, 20, 15, 1]
+    paths = ["Movies", "Romance", "Shakespeare"]
+    paths = ["../data/ClassicBooks/" + i for i in paths]
+
     for i in range(len(paths)):
         set = []
-        files = os.listdir("../data/ClassicBooks/" + paths[i])
+        files = os.listdir(paths[i])
 
         for file in files:
-            #def squeeze(book, squeezeNum, label, num_tokens=100, total=7000):
-            #set.extend(strip_book("../data/ClassicBooks/" + paths[i] + "/" + file, squNum[i], i, total=total_num))
-            set.extend(strip_book("../data/ClassicBooks/" + paths[i] + "/" + file, squeezeNum=squNum[i], label=i, total=total_num))
+            set.extend(strip_book(paths[i] + "/" + file, label=i, num_per_book=total_per_genre/len(files)))
 
-            if(len(set) >= total_num):
+            if i == 1 and len(set) >= total_per_genre:
                 break
 
         print(paths[i], len(set))
         print("\t", len(set) * .75, len(set) * .20)
 
-        shuffle(set)
+        shuffle(set)  # Shuffle so that it's not like we train on only Romeo and Juliet and test on only Hamlet
 
         # dump this book type into the real lists
         train_test_valids[0].extend(set[0: int(len(set) * 0.75)])
@@ -110,8 +99,8 @@ def load_runs(total_num):
     for i in range(len(new_files)):
         with open("../data/" + new_files[i], 'w', encoding='utf-8') as f:
             for run in train_test_valids[i]:
-                if len(run[0]) > 0:
-                    f.write(run[0] + "\t" + str(run[1]) + "\n")
+                if len(run[1]) > 0:
+                    f.write(str(run[0]) + "\t" + run[1] + "\n")
 
     print("\nLoaded!")
     print("\n# Cases:")
@@ -120,9 +109,10 @@ def load_runs(total_num):
     print("Valid:\t", len(train_test_valids[2]))
 
 
+"""
 def load_poems():
     num = 0
-    for root, dirs, files in os.walk("C:\\Users\\lalat\\Downloads\\archive"):
+    for root, dirs, files in os.walk("C:\\Users\\lalat\\Downloads\\archive\\topics"):
         for file in files:
             path = os.path.join(root, file)
             with open(path, 'r', encoding='utf-8') as read:
@@ -131,13 +121,13 @@ def load_poems():
                         out.write(line)
                     out.write("\n\n")
                     num += 1
-                    if num > 6:
+                    if num > 10:
                         num = 0
     print("Poems Loaded!")
-
+"""
 
 # load_poems()
-load_runs(3000)
+load_runs(1500)
 
 # strip_book("../data/ClassicBooks/Shakespeare/as you like it.txt", 1, 1)
 
