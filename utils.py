@@ -1,193 +1,184 @@
 import torch
-import torch.nn as nn
-import torch.optim as optim
-from torch.utils.data import DataLoader, TensorDataset
-from starter.utils import load_data, TextProcessor, convert_text_to_tensors
+import re
+from collections import Counter
+from numpy import std, mean, median
 
-class NeuralNetwork(nn.Module):
-    def __init__(self, vocab_size, embedding_dim, hidden_size, output_size, max_length=20):
-        super(NeuralNetwork, self).__init__()
+#########################################################
+# COMP331 Fall 2025 PA2
+# This file contains utilities for loading the datasets and text preprocessing
+# The TextProcessor class contains methods similar to those in the tutorial
+#########################################################
+
+def load_data(infile):
+    """
+    Load data from a text file with the format: <text>\t<label>
+    """
+    texts = []
+    labels = []
+
+    with open(infile, 'r', encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            # There could be tabs in text, so we use the rightmost tab to separate text and label
+            last_tab = line.rfind('\t')
+            if last_tab != -1:  # if a tab is found
+                label = line[0][0]
+                text = line[1:]
+                texts.append(text)
+                labels.append(int(label))
+    return texts, torch.tensor(labels, dtype=torch.long)
+
+
+class TextProcessor:
+    wordFile = {}
+    """
+    Preprocess text, build vocabulary and mappings between words and indices
+    """
+
+    def __init__(self, vocab_size=30000):
+        # We restrict vocabulary size to a pre-defined value to save memory
         self.vocab_size = vocab_size
-        self.embedding_dim = embedding_dim
-        self.hidden_size = hidden_size
-        self.output_size = output_size
-        self.max_length = max_length
+        self.word_to_idx = {}
+        self.idx_to_word = {}
 
-        # Embedding Layer
-        self.embed = nn.Embedding(vocab_size, embedding_dim)
+    def stem(self, word):
+        return word
+        ret = word.strip()
+        suffixes = [
+            ['ies', 'y'],
+            ['es', ''],
+            ['s', ''],
+            ['er', ''],
+            ['est', ''],
+            ['ing', ''],
+            ['ed', ''],
+            ['tion', ''],
+            ['ful', ''],
+            ['iness', 'y'],
+            ['ssion', 't'],
+            ['ize', '']
 
-        # Linear layer
-        self.linear1 = nn.Linear(embedding_dim, hidden_size)
-        self.relu = nn.ReLU()
-
-        # GRU layer
-        self.gru = nn.GRU(embedding_dim, hidden_size, num_layers=2, batch_first=True, bidirectional=True)
-        self.gruLin = nn.Linear(hidden_size*2, output_size)  # hidden size is multiplied by 2 directions
-
-        # Linear layer
-        self.linear2 = nn.Linear(hidden_size, output_size, bias=False)
-        self.sig = nn.Sigmoid()
-
-    def forward(self, x):
-        '''
-        emb = self.embed(x)
-
-        lin1 = self.linear1(emb)
-        relu = self.relu(lin1)
-
-        # Pull the 3 dimensions (batch size, # of features, hidden_size) down to 2 (batch size, output_size)
-        pooled = torch.mean(relu, dim=1)
-        lin2 = self.linear2(pooled)
-        sig = self.sig(lin2)
-
-        return sig
-        '''
-
-        gru, _ = self.gru(x.to(dtype=torch.float32))
-        gru = gru.reshape(gru.shape[0], -1)
-
-        lin = self.gruLin(gru)
-
-        sig = self.sig(lin)
-        return sig
+        ]
+        for s in suffixes:
+            ret = re.sub(s[0] + r'\b', s[1], ret)
+        return ret
 
 
+    def tokenize(self, text):
+        try:
+            text = self.wordFile[text[1:100]]
+            return text
+        except:
+            """
+            Simple tokenization, remove punctuation and convert to lowercase
+            You can try other tokenization methods, such as NLTK, spaCy, etc.
+            """
+            key = text[1:100]
+            #text = text.lower()
+            text = re.sub(r'[^a-zA-Z\s(\[NL\])]', '', text)
+            text = text.split()
+            for i in range(len(text)):
+                text[i] = self.stem(text[i])
+            # Stemming bloated runtime and barely affected accuracy
+            self.wordFile[key] = text
+        return text
 
-def train(model, train_features, train_labels, test_features, test_labels,
-          num_epochs, learning_rate=.001):
+    def build_vocab(self, texts):
+        """
+        Build vocabulary, mappings between words and indices from training corpus
+        """
+        word_counts = Counter()
+
+        for text in texts:
+            words = self.tokenize(text)
+            word_counts.update(words)
+
+        # Build vocabulary based on the most common words, constrained by vocabulary size
+        # Two reserve spaces for <PAD> and <UNK>
+        most_common = word_counts.most_common(self.vocab_size - 2)
+
+        # Create word to index mapping
+        self.word_to_idx = {'<PAD>': 0, '<UNK>': 1}
+        self.idx_to_word = {0: '<PAD>', 1: '<UNK>'}
+
+        for i, (word, count) in enumerate(most_common):
+            self.word_to_idx[word] = i + 2
+            self.idx_to_word[i + 2] = word
+
+    def pad_sequence(self, sequence, max_length=25):
+        """
+        Truncate a sequence if too long (> max_length), pad if too short (< max_length)
+        """
+        if len(sequence) < max_length:
+            return sequence + ["<PAD>"] * (max_length - len(sequence))
+        return sequence[:max_length]
+
+    firstTime = False
+
+    def text_to_indices(self, text, max_length=25):
+        """
+        Convert text to sequence of word indices.
+        Pad/Truncate the sequence to max_length.
+        """
+        words = self.tokenize(text)
+        if self.firstTime:
+            with open("e.txt", 'w', encoding='utf-8') as f:
+                f.write(" ".join(words))
+                f.write("\n")
+                self.firstTime = False
+
+        oglen = len(words)
+        words = self.pad_sequence(words, max_length)
+
+        # Convert to indices after tokenization and padding
+        indices = [self.word_to_idx.get(token, self.word_to_idx["<UNK>"]) for token in words]
+
+        return torch.tensor(indices, dtype=torch.long), oglen
+
+    def get_vocab_size(self):
+        """
+        Return the vocabulary size
+        """
+        return len(self.word_to_idx)
+
+    def get_word(self, idx):
+        """
+        Access word by index
+        """
+        return self.idx_to_word.get(idx, '<UNK>')
+
+    def get_idx(self, word):
+        """
+        Access index by word
+        """
+        return self.word_to_idx.get(word, self.word_to_idx['<UNK>'])
+
+
+def convert_text_to_tensors(docs, processor, max_length=500):
     """
-    Train the neural network model
+    This function prepares training features given a text corpus and a TextProcessor instance.
+    It converts raw texts into tensor representations of word indices.
 
     Args:
-        model: The neural network model
-        train_features: training features represented by token indices (tensor)
-            10000 x 100
-        train_labels: train labels(tensor)
-            1 x 10000
-        test_features: test features represented by token indices (tensor)
-            5000
-        test_labels: test labels (tensor)
-            1x5000
-        num_epochs: Number of training epochs
-        learning_rate: Learning rate
+        docs: List of raw text strings
+        processor: a TextProcessor instance with built vocabulary
+        max_length: Maximum sequence length
 
     Returns:
-        returns are optional, you could return training history with every N epoches and losses if you want
+        Tensor of shape (num_texts, max_length)
     """
+    token_indices = []
 
-    returnHistory = ""  # the function returns history
+    lens = []
 
-    # Set up loss, optimizer
-    loss_fn = nn.CrossEntropyLoss()
-    opt = optim.Adam(model.parameters(), learning_rate)
+    for i, text in enumerate(docs):
+        indices, oglen = processor.text_to_indices(text, max_length)
+        lens.append(oglen)
+        token_indices.append(indices)
 
-    # Set up Data Loader
-    trainDS = TensorDataset(train_features, train_labels)
-    batch_size = 1024
-    trainDL = DataLoader(trainDS, batch_size=batch_size, shuffle=True)
+    token_indices = torch.stack(token_indices)
 
-    print("\tLearning with\t", learning_rate, "as LR and", batch_size, "in batches\n")
+    print("min", "max", "avg", "med", "std", sep="\t")
+    print(min(lens), max(lens), int(mean(lens)), int(median(lens)), int(std(lens)), sep="\t")
 
-    print("\t" + "-" * int(len(train_features)/batch_size), end="")
-    if len(train_features) % batch_size > 0:
-        print("-")
-    else:
-        print()
-
-    # set up epochs
-    for e in range(num_epochs):  # for each epoch:
-        totalLoss = 0
-
-        print("\t", end="")
-
-        for i, (batchFeatures, batchLabels) in enumerate(trainDL):  # for each batch:
-            # zero the gradients
-            opt.zero_grad()
-
-            # predict the batch range
-            y_preds = model(batchFeatures)
-
-            # calculate loss, step weights
-            loss = loss_fn(y_preds, batchLabels)
-            loss.backward()
-            opt.step()
-            totalLoss += loss.item()
-            print("~", end="")
-
-        # keep track of epochs for history
-        ep = "Epoch " + str(e + 1) + " / " + str(num_epochs) + ", loss: " + str(totalLoss / len(trainDL))
-        returnHistory += ep
-        # if e+1 % 10 == 0:
-        print("\n", ep)
-
-    return returnHistory
-
-
-def evaluate(model, test_features, test_labels):
-    """
-    Evaluate the trained model on test olddata
-
-    Args:
-        model: The trained neural network model
-        test_features: (tensor)
-        test_labels: (tensor)
-
-    Returns:
-        a dictionary of evaluation metrics (include test accuracy at the minimum)
-        (You could import scikit-learn's metrics implementation to calculate other metrics if you want)
-    """
-
-    #######################
-    # TODO: Implement the evaluation function
-    # Hints:
-    # 1. Use torch.no_grad() for evaluation
-    # 2. Use torch.argmax() to get predicted classes
-    #######################
-
-    # for returning stats: True Positive, False Positive, False Negative, Accuracy
-    TP, FP, FN, accuracy = 0, 0, 0, 0
-
-    # set up evaluating
-    model.eval()
-    with torch.no_grad():
-
-        guesses = [[0,0], [0,0], [0,0], [0,0]]
-
-        # predict whole test range
-        y_preds = model(test_features)
-        numTests = test_labels.size()[0]
-
-        for i in range(numTests):  # compare each prediction with true label
-            pred = torch.argmax(y_preds[i])
-
-            # add to accuracy
-            accuracy += (pred == test_labels[i]).float() / numTests
-
-            if pred == test_labels[i]:
-                guesses[pred.item()][0] += 1
-            else:
-                guesses[pred.item()][1] += 1
-
-            '''# take notes to later calculate f1
-            if pred.item() == test_labels[i]:  # Positive:
-                if test_labels[i].item() == 1:  # True Positive
-                    TP += 1
-                else:  # False Positive
-                    eI.append(i)
-                    FP += 1
-            elif test_labels[i].item() == 1:  # False Negative
-                FN += 1
-                eI.append(i)
-            '''
-
-        # calculate precision and recall for f1
-        #precision = 1.0 * TP / (TP + FP)
-        #recall = 1.0 * TP / (TP + FN)
-
-    return {
-        'test_accuracy': accuracy,
-        #'test_precision': precision,
-        #'test_recall': recall,
-        'test_f1': 0.0,  # 2 * precision * recall / (precision + recall),
-        'guesses': guesses
-    }
+    return token_indices
