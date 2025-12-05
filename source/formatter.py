@@ -1,13 +1,16 @@
 import re
 import os
 from random import shuffle
+from spacy.lang.en import stop_words as sw
+
+
 def clean_string(text, label):
     text = re.sub(r'\[\]', "", text)
     
     # Fix the line/paragraph breaks:
-    text = re.sub(r"\n\s*\n+", " [PB] ", text)
+    text = re.sub(r"\n\s*\n+", " PARABREAK ", text)
     if label != 1:
-        text = re.sub("\n", " [NL] ", text)
+        text = re.sub("\n", " NEWLINE ", text)
     else:
         text = re.sub("\n", " ", text)
 
@@ -34,7 +37,7 @@ def clean_string(text, label):
     return text
 
 
-def strip_book(file, label, num_per_book, num_tokens=500):
+def strip_book(file, label, num_per_book, num_tokens=300):
     """
     returns book file as list of paragraph-label pairs (tests)
     :param file: a file path to the book
@@ -50,18 +53,20 @@ def strip_book(file, label, num_per_book, num_tokens=500):
     except:
         pass
 
+    stop_words = sw.STOP_WORDS
+
     ret = []
 
     book = clean_string(book, label)
     book = book.split(" ")
-    book = [i for i in book if i != ""]  # remove blank chars
+    book = [i for i in book if i != "" and i not in stop_words]  # remove blank chars
 
     # We stop at the end of a section or by num_tokens tokens, whichever is earlier
-    stops = ["[NL]", "[PB]", ".", "!", "?", ";", "-"]
+    #stops = ["[NL]", "[PB]", ".", "!", "?", ";", "-"]
     #stops = ["[NL]", "[PB]", "[P]", "[E]", "[Q]", "[S]", "[D]"]
 
     i = 0
-    while i < min(int(num_per_book * num_tokens), len(book)):
+    '''while i < min(int(num_per_book * num_tokens), len(book)):
         start = i
         fullstop = min(i+num_tokens, len(book))
         i = start + int((fullstop - start) * 0.75)
@@ -70,16 +75,22 @@ def strip_book(file, label, num_per_book, num_tokens=500):
             i += 1
         ret.append([label, " ".join(book[start:i])])
         i += 1
+        '''
+    ret.append([label, " ".join(book)])
+        
 
     return ret
 
 def load_runs(total_per_genre):
     train_test_valids = [ [], [], [] ]
 
+    paths = ["Fictional", "Real/Musician", "Real/Politician"]
     #paths = ["Movies", "Shakespeare"] #, "Romance"]
-    paths = ["Country", "Metal", "Pop", "Rock"]
+    #paths = ["Country", "Metal", "Pop", "Rock"]
+
+    paths = ["data/Wikipedia/" + i for i in paths]
     #paths = ["data/ClassicBooks/" + i for i in paths]
-    paths = ["data/pa3_data/" + i for i in paths]
+    #paths = ["data/pa3_data/" + i for i in paths]
     
     for i in range(len(paths)):
         set = []
@@ -88,13 +99,13 @@ def load_runs(total_per_genre):
         j = 0
 
         for file in files:
-            print("\t" + "-" * int(len(files)))
-            print("\t")
+            #print("\t" + "-" * int(len(files)))
+            #print("\t")
             set.extend(strip_book(paths[i] + "/" + file, label=i, num_per_book=total_per_genre/len(files)))
 
             if i == 1 and len(set) >= total_per_genre:
                 break
-            print("~", end="")
+            #print("~", end="")
             j += 1
 
         print()

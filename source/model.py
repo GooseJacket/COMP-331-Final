@@ -22,7 +22,7 @@ class NeuralNetwork(nn.Module):
         self.relu = nn.ReLU()
 
         # GRU layer
-        num_layers = 1
+        num_layers = 2
         self.gru = nn.GRU(embedding_dim, hidden_size, num_layers=num_layers, batch_first=True, bidirectional=True)
         self.gruLin = nn.Linear(hidden_size*2, output_size)  # hidden size is multiplied by 2 directions
 
@@ -52,8 +52,7 @@ class NeuralNetwork(nn.Module):
 
         sig = self.sig(lin)
         return lin
-
-
+    
 
 def train(model, train_features, train_labels, test_features, test_labels,
           num_epochs, learning_rate=.001):
@@ -129,33 +128,12 @@ def train(model, train_features, train_labels, test_features, test_labels,
 
 
 def evaluate(model, test_features, test_labels):
-    """
-    Evaluate the trained model on test olddata
-
-    Args:
-        model: The trained neural network model
-        test_features: (tensor)
-        test_labels: (tensor)
-
-    Returns:
-        a dictionary of evaluation metrics (include test accuracy at the minimum)
-        (You could import scikit-learn's metrics implementation to calculate other metrics if you want)
-    """
-
-    #######################
-    # TODO: Implement the evaluation function
-    # Hints:
-    # 1. Use torch.no_grad() for evaluation
-    # 2. Use torch.argmax() to get predicted classes
-    #######################
-
     # for returning stats: True Positive, False Positive, False Negative, Accuracy
     TP, FP, FN, accuracy = 0, 0, 0, 0
 
     # set up evaluating
     model.eval()
     with torch.no_grad():
-
 
         # predict whole test range
         y_preds = model(test_features)
@@ -164,7 +142,7 @@ def evaluate(model, test_features, test_labels):
         soft_max = nn.Softmax(dim=None)
 
         num_features = len(y_preds[0])
-        guesses = [[a for a in range(num_features + 1)] for b in range(num_features + 1)]
+        guesses = [[0 for a in range(num_features + 1)] for b in range(num_features + 1)]
 
         for i in range(numTests):  # compare each prediction with true label
             pred = y_preds[i]
@@ -207,9 +185,8 @@ def guess(model, given):
 
     # set up predicting and writing to file
     with torch.no_grad():
-        pred = model(given)  # predict the batch
-
-        pred = torch.argmax(pred[0]).item()
+        preds = model(given)
+        pred = torch.argmax(preds[0]).item()
 
     print(pred)
 

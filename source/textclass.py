@@ -1,5 +1,5 @@
 import torch
-from model import train, evaluate, NeuralNetwork
+from model import train, evaluate, guess, NeuralNetwork
 from utils import load_data, TextProcessor, convert_text_to_tensors
 
 if __name__ == "__main__":
@@ -14,6 +14,7 @@ if __name__ == "__main__":
     # Load training and test data
     train_texts, train_labels = load_data("data/trainSansSh.txt")
     test_texts, test_labels = load_data("data/testSansSh.txt")
+    predict_texts, _ = load_data("data/validsSansSh.txt")
 
     # DEBUGGING DATA (smaller to speed up training and ensure no dumb mistakes)
    # train_texts, train_labels = train_texts[0:10000], train_labels[0:1000]
@@ -24,16 +25,17 @@ if __name__ == "__main__":
     processor.build_vocab(train_texts)
 
     # Convert text documents to tensor representations of word indices
-    max_length = 500
+    max_length = 600
     train_features = convert_text_to_tensors(train_texts, processor, max_length)
     test_features = convert_text_to_tensors(test_texts, processor, max_length)
+    predict_features = convert_text_to_tensors(predict_texts, processor, max_length)
 
     # Create a neural network model
     # Modify the hyperparameters according to your model architecture
     vocab_size = len(processor.word_to_idx)
     embedding_dim = max_length
     hidden_size = 256
-    output_size = 4
+    output_size = 3
 
     print("\nVariables:")
     print("\tTraining size\t", len(train_texts), "texts x", max_length, "tokens")
@@ -65,6 +67,9 @@ if __name__ == "__main__":
     # Evaluate
     evaluation_results = evaluate(model, test_features, test_labels)
 
+    # Predict
+    prediction_results = guess(model, predict_features)
+
     print()
     print(f"Model performance report: \n")
     print(f"Test accuracy: {evaluation_results['test_accuracy']:.4f}")
@@ -74,6 +79,10 @@ if __name__ == "__main__":
     print("Guess=", "\t".join([str(i).rjust(4) for i in range(len(evaluation_results['guesses'])-1)]), "Total", sep="\t")
     for i in range(len(evaluation_results['guesses'])):
         print("Real=" + str(i), "\t".join(evaluation_results['guesses'][i]), sep="\t")
+
+    print()
+    print(predict_texts[0][50:200])
+    print(prediction_results)
 
     # Save model weights to file
     torch.save(model.state_dict(), outfile)
