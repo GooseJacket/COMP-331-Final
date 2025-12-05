@@ -71,11 +71,11 @@ def goThrough(file):
             F.write("\n")
 
 
-'''goThrough("data/train.txt")
+goThrough("data/trainSansSh.txt")
 print("Train Done!")
 '''
-goThrough("data/test.txt")
+goThrough("data/testSansSh.txt")
 print("Test Done!")
 '''
-goThrough("data/valids.txt")
-print("Valids Done!")'''
+goThrough("data/validsSansSh.txt")
+print("Valids Done!")

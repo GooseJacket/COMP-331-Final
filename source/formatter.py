@@ -3,7 +3,7 @@ import os
 from random import shuffle
 def clean_string(text, label):
     text = re.sub(r'\[\]', "", text)
-
+    
     # Fix the line/paragraph breaks:
     text = re.sub(r"\n\s*\n+", " [PB] ", text)
     if label != 1:
@@ -11,6 +11,7 @@ def clean_string(text, label):
     else:
         text = re.sub("\n", " ", text)
 
+    '''
     # Do the punctuation:
     replace = [
         [".", " [P] "],  # period
@@ -26,7 +27,7 @@ def clean_string(text, label):
 
     for r in replace:
         text = re.sub(re.escape(r[0]), r[1], text)
-
+    '''
     text = re.sub(r'[^a-zA-Z\s\[\]]', " ", text)
     text = text.strip()
 
@@ -42,9 +43,12 @@ def strip_book(file, label, num_per_book, num_tokens=500):
     :return list of [label, run]
     """
     book = ""
-    with open(file, 'r', encoding='utf-8') as F:
-        for line in F:
-            book += line + " "
+    try:
+        with open(file, 'r', encoding='utf-8') as F:
+            for line in F:
+                book += line + " "
+    except:
+        pass
 
     ret = []
 
@@ -53,7 +57,8 @@ def strip_book(file, label, num_per_book, num_tokens=500):
     book = [i for i in book if i != ""]  # remove blank chars
 
     # We stop at the end of a section or by num_tokens tokens, whichever is earlier
-    stops = ["[NL]", "[PB]", "[P]", "[E]", "[Q]", "[S]", "[D]"]
+    stops = ["[NL]", "[PB]", ".", "!", "?", ";", "-"]
+    #stops = ["[NL]", "[PB]", "[P]", "[E]", "[Q]", "[S]", "[D]"]
 
     i = 0
     while i < min(int(num_per_book * num_tokens), len(book)):
@@ -71,9 +76,11 @@ def strip_book(file, label, num_per_book, num_tokens=500):
 def load_runs(total_per_genre):
     train_test_valids = [ [], [], [] ]
 
-    paths = ["Movies", "Romance", "Shakespeare"]
-    paths = ["data/ClassicBooks/" + i for i in paths]
-
+    #paths = ["Movies", "Shakespeare"] #, "Romance"]
+    paths = ["Country", "Metal", "Pop", "Rock"]
+    #paths = ["data/ClassicBooks/" + i for i in paths]
+    paths = ["data/pa3_data/" + i for i in paths]
+    
     for i in range(len(paths)):
         set = []
         files = os.listdir(paths[i])
@@ -104,12 +111,15 @@ def load_runs(total_per_genre):
     for l in train_test_valids:
         shuffle(l)
 
-    new_files = ["train.txt", "test.txt", "valids.txt"]
+    new_files = ["trainSansSh.txt", "testSansSh.txt", "validsSansSh.txt"]
     for i in range(len(new_files)):
-        with open("data/" + new_files[i], 'w', encoding='utf-8') as f:
-            for run in train_test_valids[i]:
-                if len(run[1]) > 0:
-                    f.write(str(run[0]) + "\t" + run[1] + "\n")
+        try:
+            with open("data/" + new_files[i], 'w', encoding='utf-8') as f:
+                for run in train_test_valids[i]:
+                    if len(run[1]) > 0:
+                        f.write(str(run[0]) + "\t" + run[1] + "\n")
+        except:
+            pass
 
     print("\nLoaded!")
     print("\n# Cases:")
@@ -117,7 +127,6 @@ def load_runs(total_per_genre):
     print("Train:\t", len(train_test_valids[1]))
     print("Valid:\t", len(train_test_valids[2]))
 
-# load_poems()
 load_runs(1500)
 
 # strip_book("../data/ClassicBooks/Shakespeare/as you like it.txt", 1, 1)

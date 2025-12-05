@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
 from transformers import get_linear_schedule_with_warmup
+from utils import load_data, TextProcessor, convert_text_to_tensors
 
 class NeuralNetwork(nn.Module):
     def __init__(self, vocab_size, embedding_dim, hidden_size, output_size, max_length=20):
@@ -181,10 +182,10 @@ def evaluate(model, test_features, test_labels):
 
             """
                 A   B   C   T
-            A   +=1         +=1
+            A       +=1     +=1
             B
             C
-            T   +=1         +=1
+            T       +=1     +=1
             """
 
 
@@ -199,3 +200,17 @@ def evaluate(model, test_features, test_labels):
         'test_f1': 0.0,  # 2 * precision * recall / (precision + recall),
         'guesses': [[str(g).rjust(4) for g in r] for r in guesses]
     }
+
+
+def guess(model, given):
+    torch.no_grad()
+
+    # set up predicting and writing to file
+    with torch.no_grad():
+        pred = model(given)  # predict the batch
+
+        pred = torch.argmax(pred[0]).item()
+
+    print(pred)
+
+    return pred

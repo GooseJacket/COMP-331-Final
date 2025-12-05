@@ -12,11 +12,11 @@ if __name__ == "__main__":
     ####################
 
     # Load training and test data
-    train_texts, train_labels = load_data("data/train.txt")
-    test_texts, test_labels = load_data("data/test.txt")
+    train_texts, train_labels = load_data("data/trainSansSh.txt")
+    test_texts, test_labels = load_data("data/testSansSh.txt")
 
     # DEBUGGING DATA (smaller to speed up training and ensure no dumb mistakes)
-    # train_texts, train_labels = train_texts[0:1000], train_labels[0:1000]
+   # train_texts, train_labels = train_texts[0:10000], train_labels[0:1000]
     # test_texts, test_labels = test_texts[0:1000], test_labels[0:1000]
 
     # Preprocess text
@@ -33,7 +33,7 @@ if __name__ == "__main__":
     vocab_size = len(processor.word_to_idx)
     embedding_dim = max_length
     hidden_size = 256
-    output_size = 3
+    output_size = 4
 
     print("\nVariables:")
     print("\tTraining size\t", len(train_texts), "texts x", max_length, "tokens")
