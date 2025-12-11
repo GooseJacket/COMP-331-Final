@@ -6,17 +6,20 @@ Because of the computing requirements, I built the (final version of the) progra
 
 ## Functions:
 predict():
-input: string with sentences to check the grammar of.
-output: list of the orignal sentences; list of the predictions (0 = ungrammatical, 1 = grammatical)
+* input: string with sentences to check the grammar of.
+* output: list of the orignal sentences; list of the predictions (0 = ungrammatical, 1 = grammatical)
+
 
 getFixed():
-input: string of one sentence to correct 
-output: string of the corrected sentence
+* input: string of one sentence to correct 
+* output: string of the corrected sentence
+
 
 grammarCorrection():
-input: string with sentences to check the grammar of.
-output: list of the original sentences; list of the predictions (0 = ungrammatical, 1 = grammatical); list of the corrected sentences.
+* input: string with sentences to check the grammar of.
+* output: list of the original sentences; list of the predictions (0 = ungrammatical, 1 = grammatical); list of the corrected sentences.
+
 
 essayGradeFormatting():
-input: string with sentences to check the grammar of.
-output: colorama-coded string: white = the original sentence was grammatical; red = the original, ungrammatical sentence; green = the corrected version of a red sentence.
+* input: string with sentences to check the grammar of.
+* output: colorama-coded string: white = the original sentence was grammatical; red = the original, ungrammatical sentence; green = the corrected version of a red sentence.
